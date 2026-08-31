@@ -218,7 +218,9 @@ def diagnose(req: DiagnoseRequest) -> dict[str, Any]:
             m = COMPOSER.compose(action.message_frame, {
                 "name": "Priya",
                 "amount": f"Rs {event.amount_rupees:,.0f}",
-                "merchant": "your subscription",
+                # Templates already supply the article ("your {merchant}"), so a
+                # value carrying its own produces "your your subscription".
+                "merchant": "Kirana Box",
                 "link": "https://rzp.io/x/...",
                 "deadline": to_ist(when).strftime("%d %b"),
                 "service": "subscription",

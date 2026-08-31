@@ -12,10 +12,13 @@ traffic, not unit tests.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from chukta.compose import (
     COERCIVE_PATTERNS,
+    TEMPLATES,
     CoercionGuard,
     Composer,
     Message,
@@ -212,3 +215,52 @@ def test_the_composer_cannot_change_what_happens(policy):
     assert set(vars(msg)) == {
         "text", "frame", "source", "guard_findings", "model_text_rejected"
     }
+
+
+# -- rendered text has to read like English --------------------------------
+#
+# The dashboard shipped "one step to fix your your subscription payment" for a
+# day. The templates supply the article ("your {merchant}"), and a caller passed
+# a merchant value that carried its own. Every unit test passed: they checked
+# that substitution happened, never that the result was readable.
+
+DOUBLED = re.compile(r"\b(\w+)\s+\1\b", re.IGNORECASE)
+
+
+@pytest.mark.parametrize("frame", list(TEMPLATES))
+def test_no_template_produces_a_doubled_word(frame):
+    text = TemplateComposer().compose(frame, FACTS)
+    match = DOUBLED.search(text)
+    assert not match, f"doubled word {match.group(0)!r} in: {text}"
+
+
+@pytest.mark.parametrize("frame", list(TEMPLATES))
+def test_no_template_leaves_an_unfilled_placeholder(frame):
+    text = TemplateComposer().compose(frame, FACTS)
+    assert "{" not in text and "}" not in text, text
+
+
+@pytest.mark.parametrize("frame", list(TEMPLATES))
+def test_every_template_names_the_amount_and_a_link(frame):
+    """A recovery message that omits either is not actionable."""
+    text = TemplateComposer().compose(frame, FACTS)
+    assert FACTS["amount"] in text, f"no amount in {frame}: {text}"
+    assert FACTS["link"] in text, f"no link in {frame}: {text}"
+
+
+def test_the_callers_facts_also_produce_readable_copy():
+    """Guards the actual values the trace, demo and dashboard pass, not just
+    the fixture - which is where the doubled word came from."""
+    from chukta.policy import load_policy
+
+    callers = [
+        {"name": "Priya", "amount": "Rs 899", "merchant": "Kirana Box",
+         "link": "https://rzp.io/x/y", "deadline": "5 Sept",
+         "service": "subscription"},
+    ]
+    c = Composer(load_policy(), use_model=False)
+    for facts in callers:
+        for frame in TEMPLATES:
+            text = c.compose(frame, facts).text
+            assert not DOUBLED.search(text), text
+            assert "{" not in text, text
