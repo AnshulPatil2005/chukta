@@ -6,6 +6,11 @@ pytest>=8.0        # test suite
 # Dashboard only (web/). The CLI and the whole eval pipeline run without these.
 fastapi>=0.118
 uvicorn>=0.32
+# Required by starlette's TestClient, which tests/test_web.py uses. It was
+# already present in the author's environment, so the suite passed locally and
+# failed on the first CI run - the exact "works on my machine" gap CI exists
+# to close.
+httpx2>=0.28
 
 # Not required. chukta/execute.py imports this lazily, inside a branch that only
 # runs if a credential is loaded - and nothing in this project loads one.
