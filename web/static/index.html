@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chukta &middot; decision inspector</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark">chukta</span>
+    <span class="sub">decision inspector</span>
+  </div>
+  <div class="warn" title="The executor runs in dry-run. Requests are rendered, never sent.">
+    dry run &middot; nothing is executed
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab is-on" data-panel="inspect">Inspect</button>
+    <button class="tab" data-panel="results">Results</button>
+    <button class="tab" data-panel="policy">Policy</button>
+    <button class="tab" data-panel="audit">Audit</button>
+  </nav>
+</header>
+
+<!-- ------------------------------------------------------------------ -->
+<main class="panel is-on" id="panel-inspect">
+  <aside class="controls">
+    <h2>Failure event</h2>
+    <p class="hint">
+      Razorpay ships a <code>source &times; step &times; reason</code> triplet on
+      every failed payment. Change it and watch the diagnosis move.
+    </p>
+
+    <label>Reason slug
+      <input id="reason" list="reasons" value="card_expired" spellcheck="false">
+      <datalist id="reasons"></datalist>
+    </label>
+    <p class="note" id="reason-note"></p>
+
+    <div class="row">
+      <label>Source <select id="source"></select></label>
+      <label>Step <select id="step"></select></label>
+    </div>
+
+    <div class="row">
+      <label>Amount (Rs)
+        <input id="amount" type="number" min="1" max="1000000" value="1299">
+      </label>
+      <label>Rail
+        <select id="payment_type">
+          <option value="one_time">one_time</option>
+          <option value="mandate">mandate</option>
+        </select>
+      </label>
+    </div>
+
+    <fieldset id="mandate-box" hidden>
+      <legend>Mandate context <span class="tag">RBI</span></legend>
+      <div class="row">
+        <label>Category <select id="mandate_category"></select></label>
+        <label>Pre-debit notice
+          <select id="notice">
+            <option value="">none served</option>
+            <option value="2">2 h ago</option>
+            <option value="26" selected>26 h ago</option>
+          </select>
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="afa_completed"> AFA completed</label>
+      <label class="check"><input type="checkbox" id="mandate_revoked"> Mandate revoked</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Customer <span class="tag">TRAI</span></legend>
+      <label class="check"><input type="checkbox" id="dnd_registered"> DND registered</label>
+      <label class="check"><input type="checkbox" id="opted_out"> Has opted out</label>
+      <label class="check"><input type="checkbox" id="attach_offer"> Attach an offer to the copy</label>
+      <label class="check"><input type="checkbox" id="send_now"> Send now (bypass the scheduler)</label>
+      <p class="hint" style="margin:4px 0 0">
+        Every step is service-class, and the policy already schedules contacts
+        inside the permitted window &mdash; so the gates never fire in normal
+        operation. Tick both boxes to see the backstop catch what a naive
+        integration would have sent.
+      </p>
+    </fieldset>
+
+    <label class="slider">
+      <span>Time of day <b id="hour-label">11:00 IST</b></span>
+      <input id="ist_hour" type="range" min="0" max="23" value="11">
+    </label>
+    <p class="hint">
+      With <b>offer</b> + <b>send now</b> ticked, drag past 21:00 and
+      <code>G-TRAI-01</code> blocks. Quiet hours are evaluated in IST
+      regardless of when the event arrived.
+    </p>
+  </aside>
+
+  <section class="output">
+    <div id="diagnosis" class="diagnosis"></div>
+    <div id="ladder" class="ladder"></div>
+  </section>
+</main>
+
+<!-- ------------------------------------------------------------------ -->
+<main class="panel" id="panel-results">
+  <div class="results-wrap" id="results-body">
+    <p class="empty">Loading&hellip;</p>
+  </div>
+</main>
+
+<main class="panel" id="panel-policy">
+  <div class="policy-wrap">
+    <p class="hint pad">
+      The entire policy is one readable file. The engine is a reader for it and
+      holds no rules of its own &mdash; which is what lets the whole thing go on
+      screen at once.
+    </p>
+    <pre id="policy-body" class="code">Loading&hellip;</pre>
+  </div>
+</main>
+
+<main class="panel" id="panel-audit">
+  <div class="audit-wrap">
+    <p class="hint pad" id="audit-head">Loading&hellip;</p>
+    <div id="audit-body"></div>
+  </div>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

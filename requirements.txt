@@ -1,0 +1,12 @@
+# Everything needed to reproduce every number in the README.
+pyyaml>=6.0        # policy.yaml
+numpy>=1.26        # seeded population and corpus draws
+pytest>=8.0        # test suite
+
+# Dashboard only (web/). The CLI and the whole eval pipeline run without these.
+fastapi>=0.118
+uvicorn>=0.32
+
+# Not required. chukta/execute.py imports this lazily, inside a branch that only
+# runs if a credential is loaded - and nothing in this project loads one.
+# razorpay>=1.4.2

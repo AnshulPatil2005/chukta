@@ -1,0 +1,237 @@
+# Chukta recovery policy.
+#
+# This is the whole policy. If it is not in this file, the agent does not do
+# it. The model may choose wording inside a frame and may arbitrate when no
+# rule matches, but it cannot invent an action that is not listed here.
+#
+# Attempt N uses steps[N]. When the steps run out, the case terminates on
+# ATTEMPT_CAP.
+
+version: 1
+
+meta:
+  currency: INR
+  timezone: Asia/Kolkata
+
+defaults:
+  max_attempts: 3
+  contact_cooldown_hours: 24
+  # Total customer contacts allowed per case across its whole life.
+  #
+  # Measured 30 Aug: this never binds. The ladders rarely propose two contacts
+  # anyway, so a budget of 2 changed nothing - `eval/compare_systems.py` showed
+  # this arm producing results identical to an unbounded reason-aware baseline.
+  # Kept as a backstop; the constraint that actually bites is below.
+  contact_budget: 2
+
+  # Do not contact a case whose expected uplift is below this.
+  #
+  # THIS is the bounded-contact idea, and it is derived rather than chosen.
+  # `python -m eval.tune_threshold` sweeps it across 6 seeds and prints the
+  # frontier; 511 is the highest threshold that still retains >=97% of the
+  # revenue. The trade it buys, against no threshold at all:
+  #
+  #     revenue   -2.9%      (-6,067)
+  #     contacts  -49%       (281 -> 144)
+  #     churn     -42%       (8.8 -> 5.2)
+  #
+  # Half the outreach and two-fifths of the cancellations, for 3% of the
+  # revenue. Whether that trade is right is a merchant's decision, not a
+  # technical one - which is why the number is here and not in the code.
+  #
+  # Charge retries are unaffected: they cost fees, not goodwill, and a retry
+  # cannot cause a cancellation. This gate governs outreach only.
+  min_uplift_score: 511
+
+  # Deadline term. Waiting for the next salary date is where most of the
+  # recovery-time advantage comes from, and also most of the slowness: p50 time
+  # to recovery is 2.4x the blind ladder and p99 runs past 13 days. Reporting
+  # means alone hid this entirely.
+  #
+  # A merchant with a cash-flow constraint would rather have the money
+  # later-but-bounded than optimally-timed-but-open-ended. 168h = 7 days.
+  # Set to null to let the policy wait as long as it likes.
+  max_wait_hours: 168
+
+  human_approval_above_rupees: 25000
+  exposure_ceiling_rupees: 200000
+  kill_switch: false
+
+# Expected uplift by recoverability class, 0-1, multiplied by the amount at
+# risk to rank cases. These are structural beliefs about where intervening
+# pays, not coefficients fitted to the outcome - which is why they live in the
+# policy file a reviewer can read rather than inside a model artefact.
+class_priors:
+  auth_dropoff: 0.85
+  instrument_invalid: 0.70
+  mandate: 0.65
+  funding: 0.55
+  transient: 0.30
+  unknown: 0.20
+  customer_intent: 0.05
+  merchant_config: 0.0
+
+# Recurring debits above this need AFA under the RBI E-mandate Framework 2026,
+# so a silent retry above it is not permitted. Higher ceiling applies to the
+# listed categories.
+rbi:
+  afa_free_limit_rupees: 15000
+  afa_free_limit_by_category:
+    insurance: 100000
+    sip: 100000
+    credit_card_bill: 100000
+  pre_debit_notice_hours: 24
+
+# TRAI TCCCPR 2018 as amended Feb 2025.
+trai:
+  promotional_window_ist: [10, 21]   # inclusive start, exclusive end
+  # Service and transactional messages are not promotional traffic, so the
+  # 21:00-10:00 band does not apply to them.
+  service_window_ist: [0, 24]
+  transactional_window_ist: [0, 24]  # service traffic is not time-boxed
+  # DND is a preference against PROMOTIONAL traffic. Service and transactional
+  # messages need no explicit consent and cannot be blocked by it.
+  honour_dnd_for: [promotional]
+
+classes:
+
+  transient:
+    note: Infrastructure blipped. The instrument is fine, so just try again.
+    hard_decline: false
+    steps:
+      - action: retry_charge
+        when: {delay_hours: 1}
+        channel: none
+      - action: retry_charge
+        when: {delay_hours: 12}
+        channel: none
+      - action: payment_link
+        when: {next_business_morning: true}
+        channel: sms
+        message_class: service
+        frame: simplification
+
+  funding:
+    note: >
+      Money was not there. Retrying at 2am on the 28th fails; the same retry on
+      the 1st succeeds. Timing is the entire intervention.
+    hard_decline: false
+    steps:
+      - action: retry_charge
+        when: {next_salary_date: true}
+        channel: none
+      - action: payment_link
+        when: {next_salary_date: true, offset_hours: 6}
+        channel: sms
+        message_class: service
+        frame: specific_action
+      - action: payment_link
+        when: {delay_hours: 72}
+        channel: sms
+        message_class: service
+        frame: social_norm
+
+  instrument_invalid:
+    note: >
+      Card is dead. Three retries produce three guaranteed declines, three
+      pointless notifications, and a worse decline ratio with the issuer.
+    hard_decline: true
+    steps:
+      - action: update_instrument
+        when: {delay_hours: 0}
+        channel: sms
+        message_class: service
+        frame: specific_action
+
+  auth_dropoff:
+    note: >
+      Customer wanted to pay and did not finish. Do not re-serve the same
+      friction - move to a rail with fewer steps.
+    hard_decline: false
+    steps:
+      - action: payment_link
+        when: {delay_hours: 0, respect_quiet_hours: true}
+        channel: sms
+        message_class: service
+        frame: simplification
+      - action: payment_link
+        when: {delay_hours: 48}
+        channel: sms
+        message_class: service
+        frame: deliberate_choice
+
+  customer_intent:
+    note: >
+      They cancelled on purpose. This is abandonment, not failure. One soft
+      touch, then leave them alone.
+    hard_decline: true
+    steps:
+      - action: no_action
+        when: {delay_hours: 0}
+        channel: none
+
+  mandate:
+    note: >
+      Retrying the charge cannot work - the authority to charge is what broke.
+      Re-mandate instead.
+    hard_decline: false
+    steps:
+      - action: remandate
+        when: {delay_hours: 0, respect_quiet_hours: true}
+        channel: sms
+        message_class: service
+        frame: specific_action
+      - action: remandate
+        when: {delay_hours: 72}
+        channel: sms
+        message_class: service
+        frame: loss_framing
+
+  merchant_config:
+    note: >
+      Our bug, not the customer's. Never contact the customer about a request
+      we malformed.
+    hard_decline: true
+    steps:
+      - action: merchant_alert
+        when: {delay_hours: 0}
+        channel: internal
+
+  unknown:
+    note: >
+      No rule matched. Conservative default: one delayed retry, no outbound
+      contact, and the case is flagged for review.
+    hard_decline: false
+    steps:
+      - action: retry_charge
+        when: {delay_hours: 24}
+        channel: none
+
+# Message frames, each derived from a published randomised trial rather than
+# written freehand. The model writes copy WITHIN a frame; it does not pick one.
+# See README - these come from tax-compliance RCTs and transplanting them to
+# consumer payment recovery is an assumption being tested, not a result.
+frames:
+  social_norm:
+    basis: BIT Guatemala RCT - reference to the majority who already paid
+    must_include: [proportion_already_paid, amount, action_link]
+  deliberate_choice:
+    basis: BIT Guatemala RCT - frames non-payment as a choice, not an oversight
+    must_include: [amount, action_link]
+    must_not_include: [threat, legal_consequence]
+  simplification:
+    basis: Reduce steps to the single next action
+    must_include: [action_link]
+  specific_action:
+    basis: Name the exact action and when
+    must_include: [action_link, deadline]
+  loss_framing:
+    basis: What stops working if this is not resolved
+    must_include: [service_impact, action_link]
+
+# Hard block regardless of frame. Checked by a classifier before send.
+prohibited_language:
+  - threat of legal action
+  - threat of contacting family or employer
+  - implication of criminality
+  - shaming or abusive terms

@@ -1,0 +1,80 @@
+name: ci
+
+# Green on day one, so a regression is visible the day it lands rather than the
+# day before submission. The reproducibility job is the important one: it fails
+# if the headline numbers move, which is the failure mode that would otherwise
+# go unnoticed until someone tried to verify a claim in the README.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Record the environment
+        run: |
+          python -c "import sys; print(sys.version)"
+          pip freeze
+
+      - name: Unit tests
+        run: pytest -q
+
+  benchmark:
+    # The external uplift benchmark needs a download, so it is a separate job:
+    # a flaky upstream host should not turn the whole suite red.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Fetch Hillstrom
+        run: python -m eval.fetch_hillstrom
+      - name: External benchmark
+        run: pytest -q tests/test_qini_hillstrom.py
+
+  reproducibility:
+    # The README quotes exact figures. If a change moves them, this fails and
+    # says so - rather than the README quietly becoming false.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Same seed produces identical results
+        run: |
+          python -m sim.run --n 300 --seed 20260829
+          python -m eval.metrics | grep -v '^run ' > a.txt
+          python -m sim.run --n 300 --seed 20260829
+          python -m eval.metrics | grep -v '^run ' > b.txt
+          diff a.txt b.txt && echo "reproducible"
+
+      - name: Headline figures still hold
+        run: python -m eval.check_claims --full

@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+runs/*.jsonl
+runs/*.json
+!runs/.gitkeep
+.pytest_cache/
+
+# External benchmark dataset - fetch with `python -m eval.fetch_hillstrom`
+data/*.csv
+
+.pytest_cache/
