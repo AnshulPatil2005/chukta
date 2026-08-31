@@ -311,7 +311,20 @@ def results() -> dict[str, Any]:
     from eval.metrics import compare, load_run
     from eval.uplift import oracle, qini, qini_coefficient
 
-    out: dict[str, Any] = {"run": None, "qini": None, "sweep": None}
+    out: dict[str, Any] = {"run": None, "qini": None, "sweep": None,
+                           "generated": False, "how_to_generate": None}
+
+    # `runs/` is gitignored - it holds outputs, not source. So a fresh clone
+    # has an empty Results tab, which is a poor first impression for someone
+    # who cloned the repo to look at it. A single run takes about two seconds,
+    # so generate it on demand rather than shipping a stale artefact.
+    latest = RUNS / "latest.json"
+    if not latest.exists():
+        try:
+            _generate_baseline_run()
+            out["generated"] = True
+        except Exception:
+            pass  # the tab degrades to its empty state, which explains itself
 
     latest = RUNS / "latest.json"
     if latest.exists():
@@ -338,7 +351,28 @@ def results() -> dict[str, Any]:
     sweep = RUNS / "sweep.json"
     if sweep.exists():
         out["sweep"] = json.loads(sweep.read_text(encoding="utf-8"))
+    else:
+        # Twelve seeds plus a sensitivity pass is most of a minute. That does
+        # not belong in an HTTP handler, so name the command instead.
+        out["how_to_generate"] = (
+            "python -m eval.sweep --seeds 12 --sensitivity --json"
+        )
     return out
+
+
+def _generate_baseline_run(n: int = 300, seed: int = 20260829) -> None:
+    """One two-arm run, written to runs/latest.json. Seconds, not minutes."""
+    import subprocess
+    import sys
+
+    # --out must follow RUNS, not sim.run's own default, or the file lands
+    # somewhere the caller is not looking. Caught by a test that patched RUNS
+    # and watched the generated run appear in the real directory instead.
+    subprocess.run(
+        [sys.executable, "-m", "sim.run", "--n", str(n), "--seed", str(seed),
+         "--out", str(RUNS)],
+        cwd=ROOT, check=True, capture_output=True, timeout=120,
+    )
 
 
 @app.get("/api/audit")

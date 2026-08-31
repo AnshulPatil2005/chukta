@@ -188,3 +188,46 @@ def test_vocab_is_derived_from_the_engine_not_hardcoded():
     vocab = client.get("/api/vocab").json()
     assert set(vocab["reasons"]) == set(REASON_RULES)
     assert vocab["rbi"]["afa_free_limit_rupees"] == POLICY["rbi"]["afa_free_limit_rupees"]
+
+
+# -- the fresh-clone experience ---------------------------------------------
+#
+# `runs/` is gitignored because it holds outputs. That meant someone who cloned
+# the repo and ran `serve.py` saw two of four tabs blank - a bad first
+# impression for the exact person the repo is meant to persuade.
+
+def test_results_generates_a_run_when_none_exists(tmp_path, monkeypatch):
+    """A single two-arm run takes seconds, so generate rather than show a
+    blank tab."""
+    monkeypatch.setattr("web.app.RUNS", tmp_path)
+    data = client.get("/api/results").json()
+    assert data["generated"] is True
+    assert data["run"] is not None
+    assert data["qini"] is not None
+
+
+def test_a_missing_sweep_names_the_command_instead_of_running_it(tmp_path, monkeypatch):
+    """Twelve seeds plus sensitivity is most of a minute. That does not belong
+    in an HTTP handler."""
+    monkeypatch.setattr("web.app.RUNS", tmp_path)
+    data = client.get("/api/results").json()
+    assert data["sweep"] is None
+    assert "eval.sweep" in data["how_to_generate"]
+
+
+def test_the_inspector_works_with_no_run_data_at_all(tmp_path, monkeypatch):
+    """The hero tab must never depend on generated artefacts."""
+    monkeypatch.setattr("web.app.RUNS", tmp_path)
+    out = post(reason="incorrect_otp", source="customer",
+               step="payment_authentication")
+    assert out["steps"]
+    assert out["diagnosis"]["klass"] == "auth_dropoff"
+
+
+def test_the_dashboard_holds_no_credentials():
+    """It is safe to expose: the executor is in dry run and never loaded a key.
+    If this ever changes, deploying the dashboard would publish a credential."""
+    import web.app as w
+
+    assert w.EXECUTOR.dry_run is True
+    assert w.EXECUTOR.credentials is None

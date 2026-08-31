@@ -212,6 +212,8 @@ function render(data) {
 
 let resultsLoaded = false;
 async function loadResults() {
+  // Re-fetch while data is still missing, so generating the sweep in a
+  // terminal and clicking back shows it without a page reload.
   if (resultsLoaded) return;
   const data = await (await fetch("/api/results")).json();
   const wrap = $("results-body");
@@ -298,10 +300,18 @@ async function loadResults() {
     wrap.append(t);
   }
 
-  if (!data.run && !data.sweep) {
-    wrap.append(el("p", "empty", "No results yet. Run: python -m sim.run && python -m eval.sweep --seeds 12 --sensitivity --json"));
+  if (!data.sweep && data.how_to_generate) {
+    const p = el("p", "empty");
+    p.append(document.createTextNode(
+      "The 12-seed robustness sweep has not been generated. It takes about a " +
+      "minute, which is too long for a page load, so run it once: "));
+    p.append(el("code", null, data.how_to_generate));
+    wrap.append(p);
   }
-  resultsLoaded = true;
+  if (!data.run) {
+    wrap.append(el("p", "empty", "No run data, and generating it failed. Run: python -m sim.run"));
+  }
+  resultsLoaded = Boolean(data.run && data.sweep);
 }
 
 function qiniSvg(q) {
