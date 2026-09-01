@@ -17,6 +17,22 @@ from eval.report_variants import variants
 
 @pytest.fixture(scope="module")
 def run():
+    """Generate the run if it is absent.
+
+    `runs/` is gitignored because it holds outputs, so a fresh checkout has
+    none - which is exactly how these tests failed on their first CI run. The
+    dashboard already had this fixed; the tests reintroduced it. A test that
+    depends on a generated artefact has to be able to generate it.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    if not Path("runs/latest.json").exists():
+        subprocess.run(
+            [sys.executable, "-m", "sim.run", "--n", "300", "--seed", "20260829"],
+            check=True, capture_output=True, timeout=180,
+        )
     return load_run()
 
 
