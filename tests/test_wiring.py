@@ -35,6 +35,7 @@ MUST_BE_WIRED = {
     "audit": "no provenance",
     "execute": "no execution path",
     "clock": "IST windows would not be evaluated",
+    "webhook": "no real events could be ingested",
 }
 
 ENTRY_POINTS = ("demo_live.py", "serve.py")

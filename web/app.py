@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -29,10 +29,11 @@ from pydantic import BaseModel, Field
 from chukta.audit import read as read_audit
 from chukta.clock import to_ist
 from chukta.compose import Composer
-from chukta.execute import Executor, IdempotencyLedger
+from chukta.execute import Executor, IdempotencyLedger, _read_env_file
 from chukta.gates import CaseState, blocking, evaluate
 from chukta.policy import PolicyEngine, load_policy
 from chukta.taxonomy import REASON_RULES, SOURCE_STEP_DEFAULTS, classify
+from chukta.webhook import SIGNATURE_HEADER, WebhookReceiver
 from chukta.types import (
     ActionType,
     Channel,
@@ -54,6 +55,12 @@ POLICY = load_policy()
 ENGINE = PolicyEngine(POLICY)
 EXECUTOR = Executor(dry_run=True, ledger=IdempotencyLedger(RUNS / "_web.jsonl"))
 COMPOSER = Composer(POLICY)
+
+# Razorpay webhook ingestion. The secret is read once at startup; an absent one
+# leaves the endpoint refusing everything, which is the correct default for a
+# machine that was never meant to receive deliveries.
+_WEBHOOK_SECRET = _read_env_file().get("RAZORPAY_WEBHOOK_SECRET", "")
+RECEIVER = WebhookReceiver(secret=_WEBHOOK_SECRET)
 
 SOURCES = ["issuer", "customer", "business", "bank", "gateway", "network", "NA"]
 STEPS = [
@@ -136,6 +143,44 @@ def _now_at_ist_hour(hour: int) -> datetime:
     return datetime(
         today.year, today.month, today.day, 0, 0, tzinfo=timezone.utc
     ) + timedelta(hours=hour - 5, minutes=-30)
+
+
+@app.post("/api/webhook")
+async def webhook(request: Request) -> dict[str, Any]:
+    """Ingest one Razorpay delivery.
+
+    Takes the RAW body deliberately - not a Pydantic model. FastAPI would
+    happily parse and validate the payload for us, but that runs a parser over
+    attacker-controlled input BEFORE the signature is checked. The signature has
+    to come first, and it is defined over the exact bytes that arrived, so this
+    handler reads bytes and hands them to `chukta.webhook` untouched.
+
+    Every rejection returns the same shape. Distinguishing "bad signature" from
+    "replayed" from "stale" in the response would hand an attacker a probe.
+    """
+    raw = await request.body()
+    signature = request.headers.get(SIGNATURE_HEADER, "")
+    receipt = RECEIVER.receive(raw, signature)
+
+    if not receipt.accepted:
+        # 400 rather than 401: Razorpay retries on 5xx, and a forged delivery
+        # is not something we want redelivered.
+        raise HTTPException(status_code=400, detail="rejected")
+
+    out: dict[str, Any] = {
+        "accepted": True,
+        "event_id": receipt.event_id,
+        "event_type": receipt.event_type,
+        "handled": receipt.failure is not None,
+    }
+    if receipt.failure is not None:
+        klass, evidence = classify(receipt.failure)
+        out["diagnosis"] = {
+            "klass": klass.value,
+            "tier": evidence["tier"],
+            "confidence": evidence["confidence"],
+        }
+    return out
 
 
 @app.get("/api/vocab")

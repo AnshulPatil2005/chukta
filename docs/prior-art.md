@@ -175,3 +175,36 @@ the best of twelve seeds.
 exist** in a repo being searched. The code index does not cover repositories
 this new. Every "they do not have X" claim above comes from fetching and reading
 their source files directly, not from that search.
+
+
+---
+
+## Capability map, and what was done about it
+
+Written 1 Sept after reading competitor source. Each row is a capability a
+Track 03 entry has; the last column is this project's answer.
+
+| Capability | Who has it | Answer |
+| --- | --- | --- |
+| Learned targeting (LinUCB bandit, GBM recovery model) | agastyasharma20, BHUVANESWAR-B, Pen-ball | **Tested it and reported that it loses.** `eval/learn_targeting.py` fits an uplift table on 6 seeds and scores on 6 held out. Learned has a higher mean (+0.167 Qini) and **5.1x the variance**, winning only 3 of 6. Not shippable; hand-written priors kept. |
+| Webhook ingestion | Pen-ball, manan28076, BHUVANESWAR-B, PythonScript32 | **Built, and hardened.** `chukta/webhook.py`: verify-before-parse over raw bytes, `compare_digest`, replay dedupe, freshness window, uniform rejections. 29 tests, most of them about what must not happen. |
+| Live deployed demo | agastyasharma20, Pen-ball | Not done. It is not a submission field, and a URL that is down during judging is worse than no URL. |
+| Postgres / Supabase persistence | manan28076, PythonScript32 | Deliberately not. JSONL with a SHA-256 hash chain is greppable, diffable, and detects edits, deletions and reordering — properties a database table does not have by default. |
+| Voice / WhatsApp channels | PythonScript32 | Not done. Channel breadth, not depth; the gate layer already classifies channels and would extend without change. |
+| Multi-source (checkouts, B2B invoices) | agastyasharma20, PythonScript32 | Not done. Broadening the surface would dilute the measurement argument, which is the contribution. |
+
+### On the bandit specifically
+
+A LinUCB bandit that recovers the ground-truth action on 12/12 segments of its
+own simulator has proved **the bandit works**, not that the policy is good — the
+ground truth was authored by whoever wrote the simulator. It is a real and
+well-executed result about the learner.
+
+The equivalent honest question is whether learning beats the hand-written
+priors *out of sample*, which is what `eval/learn_targeting.py` measures. The
+answer here is no, and the reason is specific: with 300 cases per seed spread
+over 21 populated cells, most cells hold a handful of observations, while the
+hand-written priors encode structural facts — an expired card cannot be charged,
+a cancelled customer must not be chased — that survive a thin sample.
+
+Refit when there is real traffic. Not before, and not because it demos well.

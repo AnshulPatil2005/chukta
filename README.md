@@ -246,6 +246,8 @@ python -m eval.uplift                               # Qini
 python -m eval.sweep --seeds 12 --sensitivity       # robustness
 python -m eval.compare_systems --seeds 12           # vs competing strategies
 python -m eval.dr                                   # off-policy estimate
+python -m eval.learn_targeting --train 6 --test 6   # does learning beat the priors?
+python -m eval.report_variants                     # one run, five headlines
 python -m eval.check_claims --full                  # every README figure
 pytest                                              # 199 tests
 ```
@@ -364,6 +366,7 @@ inspecting side effects once money has moved.
 | Decide    | `chukta/policy.py`          | Class + context → intervention, rail, schedule              |
 | Verify    | `chukta/gates.py`           | RBI, TRAI and operational rules, pre-execution              |
 | Enforce   | `chukta/execute.py`         | Renders the request; idempotency, breaker, credential guard |
+| Ingest    | `chukta/webhook.py`        | Signed Razorpay deliveries; verify-before-parse, replay-proof |
 | Compose   | `chukta/compose.py`         | Model writes copy in a frame; deterministic coercion guard   |
 | Wiring    | `tests/test_wiring.py`     | Runs each entry point and asserts modules are actually called |
 | Listen    | `chukta/replies.py`         | Opt-out, promise-to-pay, dispute - deterministic parsing      |

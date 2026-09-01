@@ -159,6 +159,57 @@ this stops a *correctly reasoned* action pointed at the wrong universe.
 
 ## 1 Sept 2026 — day 4
 
+### Went through the competitors' strengths one by one
+
+Read their source rather than their READMEs and built a capability map. Four
+things they have that this project did not.
+
+**Learned targeting.** Three entries fit models; one has a LinUCB bandit that
+recovers the ground-truth action on 12/12 segments over 30,000 rounds. The
+temptation was to build a bandit too. Instead `eval/learn_targeting.py` asks
+the question that actually matters: does learning beat the hand-written priors
+**out of sample**? Fit on 6 seeds, score on 6 held out.
+
+The answer is no, and the shape of the no is the interesting part. Learned has
+a HIGHER MEAN (+0.167 Qini) but **5.1x the variance**, winning only 3 of 6
+seeds. On any given batch it is a coin flip which scorer ranks better, and the
+mean is carried by a few seeds where a thin cell got lucky. With 300 cases
+spread over 21 cells, most cells hold a handful of observations; the
+hand-written priors encode structural facts that survive a thin sample.
+
+My own report initially called that "no meaningful difference", gating the
+verdict on win count alone while a +0.167 mean sat in the table above it. Fixed
+to distinguish three cases: helps consistently, higher-mean-but-unreliable, and
+no difference. A report that mislabels its own data is worse than no report.
+
+Worth saying plainly: a bandit converging on its own simulator proves the
+BANDIT works, not that the policy is good — the ground truth was authored by
+whoever wrote the simulator. That is a real result about the learner and it is
+not a result about recovery.
+
+**Webhooks.** Four entries ingest Razorpay deliveries; this project had none,
+replaying everything from a corpus. Built `chukta/webhook.py` and aimed at the
+things webhook handlers get wrong rather than at having one:
+
+- Verify BEFORE parsing. `receive()` takes bytes, so a parser never runs over
+  attacker-controlled input first. The ordering is enforced by the signature of
+  the function, not by remembering.
+- `hmac.compare_digest`, never `==`, so a forged signature does not leak how
+  much of it was correct through timing.
+- Verify the bytes received, not re-serialised JSON — two byte-strings that
+  parse identically must not share a signature, and there is a test for it.
+- Replay: dedupe on event id AND a freshness window, because a captured
+  delivery stays validly signed forever.
+- Every rejection returns the same shape. "Bad signature" and "too old" are
+  useful things for an attacker to tell apart.
+
+29 tests, most about what must not happen.
+
+**Live deployed demo and Postgres persistence.** Declined, with reasons in
+`docs/prior-art.md`. A URL that is down during judging is worse than no URL,
+and JSONL with a hash chain detects edits, deletions and reordering — which a
+database table does not do by default.
+
 ### Scanned the field, then aimed at the gap rather than the features
 
 Re-scanned Track 03: **60 public repos**, 23 touched in the last 48 hours. The
