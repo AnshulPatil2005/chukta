@@ -51,7 +51,33 @@ the comparison table where every commercial column still says no.
 
 ## Results
 
-**Headline: +Rs 20,347 mean incremental revenue across 12 seeds** (n=300 each,
+### First, the number this project refuses to lead with
+
+```
+python -m eval.report_variants
+```
+
+One run. One policy. One population. Only the framing changes:
+
+| Framing | Number |
+| --- | ---: |
+| Recovery rate, pursued cases only | 60.4% |
+| Gross recovery rate, all cases | 54.3% |
+| Total rupees recovered | Rs 194,119 |
+| Rupees attributable to an action | Rs 132,593 |
+| **Incremental vs control arm** | **Rs 38,274** |
+
+**68 of 163 "recoveries" — 42% — were customers who paid without the agent
+doing anything.** Every framing except the last counts them as a win, and the
+spread between the most flattering and the honest one is five-fold on rupees.
+
+"60.4% recovery rate" is a headline anyone would publish. It is also true, from
+this same run. That is the problem, and it is why everything below is
+incremental.
+
+### The honest headline
+
+**+Rs 20,347 mean incremental revenue across 12 seeds** (n=300 each,
 sd 10,764, approximate 95% CI on the mean [14,257, 26,438], positive in 12 of
 12), for **+59 extra contacts and +1.4 extra cancellations**. Reproduce with
 `python -m eval.sweep --seeds 12`.

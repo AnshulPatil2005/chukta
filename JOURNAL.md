@@ -157,6 +157,52 @@ this stops a *correctly reasoned* action pointed at the wrong universe.
 
 ## 31 Aug 2026 — day 3
 
+## 1 Sept 2026 — day 4
+
+### Scanned the field, then aimed at the gap rather than the features
+
+Re-scanned Track 03: **60 public repos**, 23 touched in the last 48 hours. The
+strongest is `agastyasharma20/revenue-recovery-agent` — a LinUCB contextual
+bandit with a 30,000-round convergence demo, 0/1 knapsack portfolio
+optimisation under a human-review budget, a deployed live demo, and a README
+that is genuinely careful: "not cherry-picked", "what's simulated vs real",
+"real bugs caught during development, left in this README on purpose".
+
+That is close to this project's own positioning, and better resourced on
+features. Competing on feature count against a bandit and a knapsack in four
+days would be losing slowly.
+
+But their headline is **"recovery rate of pursued cases: 11.0% → 36.9%"**. No
+self-recovery baseline, and "pursued cases" as the denominator. That is exactly
+the framing this project exists to argue against, and they are not unusual — it
+is the category norm.
+
+So rather than name anyone, `eval/report_variants.py` makes the point with this
+project's own data. One run, one policy, one population, five framings:
+
+```
+Recovery rate, pursued cases only      60.4%
+Gross recovery rate, all cases         54.3%
+Total rupees recovered            Rs 194,119
+Attributable to an action         Rs 132,593
+INCREMENTAL vs control arm         Rs 38,274   <- honest
+```
+
+**68 of 163 "recoveries" — 42% — were customers who paid without the agent
+doing anything.** Every framing except the last counts them as a win. The
+rupee spread is five-fold, and "60.4% recovery rate" is a headline anyone would
+publish.
+
+Six tests pin it, including that the incremental figure must remain the
+*smallest* rupee number and that the spread must stay above 3x. If either
+breaks, the argument stops being supported by its own data and the README needs
+rewriting rather than the test relaxing.
+
+This is the strongest thing in the project. Not because it flatters the work —
+it does the opposite, it takes the headline from Rs 194,119 to Rs 38,274 — but
+because it is checkable, it is about method rather than features, and no amount
+of engineering elsewhere answers it.
+
 ### Renamed: Wapsi -> Chukta
 
 Searched GitHub for the rest of the Track 03 field and found 40 public repos.

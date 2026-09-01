@@ -1,0 +1,189 @@
+# Submission — Razorpay AI Buildathon, Track 03
+
+Draft for the submission form. Due **5 Sept 2026**; submitting **4 Sept**.
+
+> **Before submitting:** the repository is currently **private**. Judges cannot
+> review a private repo — make it public, or add the organisers as
+> collaborators, before the form goes in.
+
+---
+
+## Selected Track
+
+```
+Track 03 — AI Revenue Recovery
+```
+
+## Project Name / Title
+
+```
+Chukta
+```
+
+चुकता — *"settled, paid up."* Named for the outcome rather than the act of
+collecting. *Vasooli* was the obvious Hindi alternative and was rejected: it
+connotes strong-arm collection, which is backwards for a project whose thesis is
+knowing when to stop.
+
+## Project Objectives
+
+```
+Chukta is a revenue-recovery agent for Razorpay merchants that diagnoses why a
+payment failed, chooses an intervention matched to that cause, verifies it
+against RBI and TRAI rules before executing, and knows when to stop.
+
+Three objectives, in priority order:
+
+1. Measure honestly. The headline metric is incremental recovery against a live
+   control arm, never gross recovery rate. Gross rate counts customers who would
+   have paid anyway, which on any realistic population is most of them, and it
+   is the standard way dunning numbers get inflated.
+
+2. Stay bounded. Model negative uplift explicitly. Contacting a lukewarm
+   subscriber can cause the very cancellation it was meant to prevent, so the
+   agent refuses outreach it cannot justify, with a threshold derived from a
+   Qini curve rather than chosen by hand.
+
+3. Be auditable. Every compliance rule is checked before execution, never
+   after, and every decision writes one hash-chained row naming the rule that
+   fired. "We were compliant" becomes evidence per decision rather than an
+   assertion per system.
+```
+
+## What does it solve?
+
+```
+A failed payment is unrecovered revenue, and in subscriptions an unrecovered
+renewal is usually a cancelled customer rather than one missed charge.
+
+The industry default is a fixed retry ladder: charge again at T+1h, T+24h,
+T+72h, same card, same rail, plus a generic SMS. It is wrong twice over.
+
+It ignores WHY the payment failed. An expired card retried three times gives
+three guaranteed declines, three pointless notifications, and a worse decline
+ratio with the issuer, which raises cost on every future transaction. An
+insufficient-funds failure retried on the 28th fails; the identical retry on the
+1st succeeds.
+
+It ignores the COST of trying. Every attempt spends fees, goodwill and issuer
+auth-rate, and outreach to a lukewarm subscriber can trigger the cancellation it
+was meant to prevent.
+
+Underneath both sits a measurement problem that is worse, and it is easiest to
+show with this project's own data. One run, one policy, one population - only
+the framing changes:
+
+  Recovery rate, pursued cases only      60.4%
+  Gross recovery rate, all cases         54.3%
+  Total rupees recovered            Rs 194,119
+  Attributable to an action         Rs 132,593
+  INCREMENTAL vs control arm         Rs 38,274   <- the honest one
+
+68 of 163 "recoveries" - 42% - were customers who paid without the agent doing
+anything. Every framing except the last counts them as a win. "60.4% recovery
+rate" is a headline anyone would publish, and it is true, from this same run.
+
+Chukta reports the incremental number and the costs alongside it: on 12 seeds,
++Rs 20,347 mean (95% CI [14,257, 26,438], positive in 12 of 12) for +59 extra
+contacts and +1.4 extra cancellations. Run `python -m eval.report_variants` to
+reproduce the table above.
+
+It also reports where it fails. Decomposed against baselines run through the
+same harness, most of the gain is commodity: diagnosis contributes +33,272, and
+this project's own contribution is -6,428 revenue buying -49% contacts and -44%
+churn. That trade pays off only if a retained customer is worth more than
+Rs 2,085 in future billing.
+```
+
+## GitHub Repository URL
+
+```
+https://github.com/AnshulPatil2005/chukta
+```
+
+## 5-min Pitch Video Link
+
+*Not yet recorded.* Planned structure:
+
+| # | Beat | Time |
+| --- | --- | --- |
+| 1 | Expired card retried 3×. Why the default ladder is wrong | 45s |
+| 2 | The measurement trap — four quadrants, why gross rate is inflated | 60s |
+| 3 | Live demo: `demo_live.py --live --fresh` → real payment link after 7 gates; then the ₹45,000 mandate blocking on 3 gates at once | 90s |
+| 4 | Results **including the bad half** — +₹20,347, but −₹6,428 vs reason-aware, and the frames assumption that sinks it | 90s |
+| 5 | What I'd measure first on live traffic: the copy, not the routing | 30s |
+
+## Build Challenges & Technical Obstacles
+
+```
+The through-line: every serious problem was hidden behind a passing test suite.
+Each fix was less about the bug than about what the tests were measuring instead.
+
+1. A LIVE Razorpay key reached the working session — wrong dashboard mode,
+   pasted into a transcript. Rotated, never written to disk. But "be careful" is
+   not a control, so execute.py now refuses any key not prefixed rzp_test_
+   before a client is constructed, with no override of any kind. A test tries
+   three plausible escape hatches and requires all three to fail. A guardrail
+   with a documented bypass is a speed bump.
+
+2. The headline number was the best of twelve seeds. Everything ran on one seed;
+   a robustness sweep showed mean 20,347 against a range of [3,166, 38,274]. The
+   seed was chosen before any numbers were seen, which is exactly why it is
+   worth recording: it read as a measurement and was an anecdote. Now the
+   headline is a mean with an interval, and a sensitivity pass perturbs each
+   simulator belief in turn. That found the finding that matters most: if the
+   behavioural message frames carry no lift in payments, the agent is NET
+   NEGATIVE (-7,691, positive in 4 of 12 seeds). Those frames come from
+   tax-compliance RCTs and nothing here tests whether they transfer.
+
+3. The differentiator was analysed and never built. Running competing strategies
+   as arms showed my agent producing results BYTE-IDENTICAL to an unbounded
+   baseline. contact_budget: 2 never bound, because the ladders rarely propose
+   two contacts anyway. The Qini analysis had already said what to do and the
+   policy simply did not act on it. Fixed with a gate whose threshold is swept
+   and derived: -70% contacts, -72% churn for -25% revenue. The first version of
+   that fix also gave the gate to the control arm, measuring it against itself
+   and inflating the delta 24%. The claim-checker caught it by flagging that a
+   CONTROL number had moved.
+
+4. Then the opposite: two modules were built, tested, given ADRs — and imported
+   by nothing. I wrote a test to prevent it, then verified the test by
+   re-orphaning the module: all 13 still passed, because they grepped the source
+   for a symbol that survived the deletion. A test a stale string can satisfy is
+   worse than no test. Rewrote them to run the thing and inspect the output.
+
+5. A compliance rule was wrong for the right reasons. Every message was labelled
+   "transactional". TCCCPR defines that as sent within THIRTY MINUTES of a
+   customer-initiated transaction; a recovery notice sent days later is a
+   "service" message. The behaviour was already correct, which is why no test
+   caught it — every test asserted the outcome. Found by reading the regulation
+   instead of summaries of it. The same pass confirmed the Rs 15,000 AFA limit,
+   the 24-hour pre-debit rule and the Rs 1 lakh category ceiling were right.
+
+6. Turning on the real API found two bugs in five minutes that 172 offline tests
+   had not. The audit log reset its hash chain on construction, so appending to
+   an existing log broke its own chain — an append-only log that cannot survive
+   a process restart is broken for its only job. And a gateway duplicate
+   rejection was logged as a generic error AND counted toward the circuit
+   breaker; it is neither. reference_id is derived from the idempotency key, so
+   with the local ledger deleted the gateway still refused to create the link
+   twice. That is the second line of defence working, and a gateway that
+   correctly rejects a duplicate is the opposite of degraded.
+
+7. CI failed on its first real run: starlette's TestClient needs httpx2, which
+   was already installed on my machine. 219 tests passed locally and collection
+   errored on all three Python versions. Textbook works-on-my-machine, caught
+   the first time the workflow actually ran.
+```
+
+---
+
+## Notes to self
+
+- The strongest answers are **"What does it solve?"** and **challenge #2**.
+  Most submissions will claim a big number. "Most of my gain is commodity, and
+  here is the assumption that makes my contribution net negative" is far harder
+  to fake and much harder to argue with.
+- Every figure quoted above is asserted in CI by `eval/check_claims.py`. If a
+  number here stops matching the code, the build goes red.
+- Competitive position is recorded in `docs/prior-art.md` (Part 2).

@@ -36,6 +36,14 @@ SINGLE_SEED_CLAIMS = [
     ("extra churn", 3, 0),
 ]
 
+# The five-headline table in the README and SUBMISSION.md. If the spread ever
+# collapses, the central argument stops being supported by its own data.
+VARIANT_CLAIMS = [
+    ("gross rupees recovered", 194119.0, 1.0),
+    ("attributable rupees", 132593.0, 1.0),
+    ("self-recovered share of recoveries (%)", 41.7, 0.2),
+]
+
 SWEEP_CLAIMS = [
     ("12-seed mean incremental", 20347.0, 50.0),
     ("seeds with positive incremental", 12, 0),
@@ -96,6 +104,25 @@ def main() -> int:
         "extra churn": inc["churn_delta"],
     }
     passed = [check(k, actual[k], v, t) for k, v, t in SINGLE_SEED_CLAIMS]
+
+    print("\nREADME five-headline table")
+    from .metrics import load_run
+    from pathlib import Path
+
+    if Path("runs/latest.json").exists():
+        run = load_run()
+        treated = run["arms"]["chukta"]
+        rec = [x for x in treated if x["recovered"]]
+        by_self = [x for x in rec if x["recovered_by"] == "self"]
+        by_action = [x for x in rec if x["recovered_by"] != "self"]
+        va = {
+            "gross rupees recovered": sum(x["amount_rupees"] for x in rec),
+            "attributable rupees": sum(x["amount_rupees"] for x in by_action),
+            "self-recovered share of recoveries (%)": len(by_self) / len(rec) * 100,
+        }
+        passed += [check(k, va[k], v, t) for k, v, t in VARIANT_CLAIMS]
+    else:
+        print("  (skipped - no runs/latest.json)")
 
     if args.full:
         print("\nREADME claims, 12-seed sweep")
