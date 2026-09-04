@@ -1,10 +1,16 @@
 # Submission — Razorpay AI Buildathon, Track 03
 
-Draft for the submission form. Due **5 Sept 2026**; submitting **4 Sept**.
+Draft for the submission form. Due **5 Sept 2026**.
 
-> **Before submitting:** the repository is currently **private**. Judges cannot
-> review a private repo — make it public, or add the organisers as
-> collaborators, before the form goes in.
+> ### Two blockers, both required fields
+>
+> 1. **The repo is private.** Judges cannot review it. Make it public:
+>    `gh repo edit AnshulPatil2005/chukta --visibility public --accept-visibility-change-consequences`
+> 2. **The video does not exist.** See `VIDEO.md` for a shooting script with
+>    every command and timing.
+>
+> Everything else is done: 263 tests, 9 CI-asserted claims, all five CI jobs
+> green, every README command verified to run.
 
 ---
 
@@ -103,7 +109,8 @@ https://github.com/AnshulPatil2005/chukta
 
 ## 5-min Pitch Video Link
 
-*Not yet recorded.* Planned structure:
+*Not yet recorded — this is a blocker.* Full shooting script in `VIDEO.md`.
+Structure:
 
 | # | Beat | Time |
 | --- | --- | --- |
