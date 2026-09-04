@@ -79,19 +79,19 @@ Underneath both sits a measurement problem that is worse, and it is easiest to
 show with this project's own data. One run, one policy, one population - only
 the framing changes:
 
-  Recovery rate, pursued cases only      60.4%
-  Gross recovery rate, all cases         54.3%
-  Total rupees recovered            Rs 194,119
-  Attributable to an action         Rs 132,593
-  INCREMENTAL vs control arm         Rs 38,274   <- the honest one
+  Recovery rate, pursued cases only      60.6%
+  Gross recovery rate, all cases         54.7%
+  Total rupees recovered            Rs 195,704
+  Attributable to an action         Rs 134,177
+  INCREMENTAL vs control arm         Rs 37,667   <- the honest one
 
-68 of 163 "recoveries" - 42% - were customers who paid without the agent doing
-anything. Every framing except the last counts them as a win. "60.4% recovery
+68 of 164 "recoveries" - 42% - were customers who paid without the agent doing
+anything. Every framing except the last counts them as a win. "60.6% recovery
 rate" is a headline anyone would publish, and it is true, from this same run.
 
 Chukta reports the incremental number and the costs alongside it: on 12 seeds,
-+Rs 20,347 mean (95% CI [14,257, 26,438], positive in 12 of 12) for +59 extra
-contacts and +1.4 extra cancellations. Run `python -m eval.report_variants` to
++Rs 16,653 mean (95% CI [9,274, 24,032], positive in 11 of 12 - one seed comes
+out NEGATIVE) for +55 extra contacts and +1.7 extra cancellations. Run `python -m eval.report_variants` to
 reproduce the table above.
 
 It also reports where it fails. Decomposed against baselines run through the
@@ -134,13 +134,13 @@ Each fix was less about the bug than about what the tests were measuring instead
    with a documented bypass is a speed bump.
 
 2. The headline number was the best of twelve seeds. Everything ran on one seed;
-   a robustness sweep showed mean 20,347 against a range of [3,166, 38,274]. The
+   a robustness sweep showed mean 16,653 against a range of [-5,569, 37,667]. The
    seed was chosen before any numbers were seen, which is exactly why it is
    worth recording: it read as a measurement and was an anecdote. Now the
    headline is a mean with an interval, and a sensitivity pass perturbs each
    simulator belief in turn. That found the finding that matters most: if the
    behavioural message frames carry no lift in payments, the agent is NET
-   NEGATIVE (-7,691, positive in 4 of 12 seeds). Those frames come from
+   NEGATIVE (-8,129, positive in 3 of 12 seeds). Those frames come from
    tax-compliance RCTs and nothing here tests whether they transfer.
 
 3. The differentiator was analysed and never built. Running competing strategies
@@ -181,6 +181,27 @@ Each fix was less about the bug than about what the tests were measuring instead
    was already installed on my machine. 219 tests passed locally and collection
    errored on all three Python versions. Textbook works-on-my-machine, caught
    the first time the workflow actually ran.
+
+8. On the last day I finally verified the failure taxonomy against Razorpay's
+   published error documentation, which a note in the code had been demanding
+   since day one. MOST OF MY SLUGS WERE WRONG. payment_timeout is actually
+   payment_timed_out; collect_request_expired is payment_collect_request_expired;
+   invalid_card_number is card_number_invalid; card_blocked is
+   debit_instrument_blocked. Others - expired_card, bank_down, network_error -
+   do not exist at all. Near-misses are the dangerous kind: they look right,
+   never match, and every affected payment quietly degrades to the coarse tier
+   while the audit row still reads "medium confidence" rather than "we had the
+   wrong string".
+
+   The source vocabulary was wrong too. Razorpay documents four values -
+   customer, business, gateway, razorpay - and I had omitted razorpay entirely,
+   so any failure Razorpay attributed to itself missed the fallback and landed
+   in UNKNOWN.
+
+   Fixed: 109 verified tier-1 rules where there were about 30, and the
+   simulator's own corpus now generates only slugs the real gateway emits. The
+   headline got WORSE as a result - 20,347 to 16,653, and 12/12 positive seeds
+   to 11/12 - because the case mix changed. That is what verification is for.
 ```
 
 ---

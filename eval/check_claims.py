@@ -28,25 +28,25 @@ from .sweep import NullAudit, seed_sweep
 # (label, expected, tolerance). Tolerances are tight: these are deterministic
 # given the seed, so anything but rounding slack would hide a real change.
 SINGLE_SEED_CLAIMS = [
-    ("incremental revenue", 38274.0, 1.0),
-    ("incremental recovery rate (pp)", 2.7, 0.05),
+    ("incremental revenue", 37667.0, 1.0),
+    ("incremental recovery rate (pp)", 2.3, 0.05),
     ("control charge attempts", 365, 0),
-    ("chukta charge attempts", 149, 0),
-    ("extra contacts", 56, 0),
+    ("chukta charge attempts", 151, 0),
+    ("extra contacts", 54, 0),
     ("extra churn", 3, 0),
 ]
 
 # The five-headline table in the README and SUBMISSION.md. If the spread ever
 # collapses, the central argument stops being supported by its own data.
 VARIANT_CLAIMS = [
-    ("gross rupees recovered", 194119.0, 1.0),
-    ("attributable rupees", 132593.0, 1.0),
-    ("self-recovered share of recoveries (%)", 41.7, 0.2),
+    ("gross rupees recovered", 195704.0, 1.0),
+    ("attributable rupees", 134177.0, 1.0),
+    ("self-recovered share of recoveries (%)", 41.5, 0.2),
 ]
 
 SWEEP_CLAIMS = [
-    ("12-seed mean incremental", 20347.0, 50.0),
-    ("seeds with positive incremental", 12, 0),
+    ("12-seed mean incremental", 16653.0, 50.0),
+    ("seeds with positive incremental", 11, 0),
 ]
 
 

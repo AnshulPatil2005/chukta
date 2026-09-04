@@ -22,17 +22,28 @@ from .population import SimCustomer
 # (source, step, reason, payment_type_bias) with the share of the batch each
 # takes. Shares are shaped to look like an Indian merchant's failure mix:
 # funding and authentication drop-off dominate, merchant bugs are rare.
+# Every slug below is verified against Razorpay's published error
+# documentation (4 Sept 2026), with one deliberate exception at the bottom.
+# The first version used remembered slugs - bank_down, card_blocked,
+# collect_request_expired - none of which Razorpay actually returns. A
+# simulator generating events the real gateway never emits is testing the
+# wrong thing, however well the rest of the pipeline works.
+#
+# `source` values are the four Razorpay documents: customer, business,
+# gateway, razorpay.
 FAILURE_MIX = [
-    (0.28, "issuer", "payment_authorization", "insufficient_funds", 0.45),
+    (0.28, "customer", "payment_authorization", "insufficient_funds", 0.45),
     (0.16, "customer", "payment_authentication", "incorrect_otp", 0.05),
-    (0.09, "customer", "payment_response", "collect_request_expired", 0.05),
+    (0.09, "customer", "payment_response", "payment_collect_request_expired", 0.05),
     (0.11, "gateway", "payment_response", "gateway_technical_error", 0.30),
-    (0.07, "bank", "payment_authorization", "bank_down", 0.30),
-    (0.08, "issuer", "payment_authorization", "card_expired", 0.55),
-    (0.04, "issuer", "payment_authorization", "card_blocked", 0.30),
+    (0.07, "gateway", "payment_authorization", "bank_not_available", 0.30),
+    (0.08, "customer", "payment_authorization", "card_expired", 0.55),
+    (0.04, "customer", "payment_authorization", "debit_instrument_blocked", 0.30),
     (0.06, "customer", "payment_initiation", "payment_cancelled", 0.02),
-    (0.05, "bank", "payment_authorization", "mandate_revoked", 1.0),
-    (0.03, "issuer", "payment_authorization", "mandate_limit_exceeded", 1.0),
+    # The mandate itself is revoked; the slug is incidental because
+    # `mandate.revoked` short-circuits classification before tier 1 runs.
+    (0.05, "gateway", "payment_authorization", "mandate_creation_expired", 1.0),
+    (0.03, "customer", "payment_authorization", "funds_blocked_by_mandate", 1.0),
     (0.02, "business", "payment_initiation", "input_validation_failed", 0.20),
     # An unrecognised slug, on purpose: the tier-2 fallback must carry it.
     (0.01, "gateway", "payment_authorization", "acquirer_route_unavailable", 0.20),
@@ -72,7 +83,7 @@ def build_corpus(people: list[SimCustomer], start, seed: int = 20260829) -> list
                     else None
                 ),
                 category=category,
-                revoked=reason in ("mandate_revoked",),
+                revoked=reason in ("mandate_creation_expired",),
             )
 
         events.append(

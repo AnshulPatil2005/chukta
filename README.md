@@ -61,28 +61,28 @@ One run. One policy. One population. Only the framing changes:
 
 | Framing | Number |
 | --- | ---: |
-| Recovery rate, pursued cases only | 60.4% |
-| Gross recovery rate, all cases | 54.3% |
-| Total rupees recovered | Rs 194,119 |
-| Rupees attributable to an action | Rs 132,593 |
-| **Incremental vs control arm** | **Rs 38,274** |
+| Recovery rate, pursued cases only | 60.6% |
+| Gross recovery rate, all cases | 54.7% |
+| Total rupees recovered | Rs 195,704 |
+| Rupees attributable to an action | Rs 134,177 |
+| **Incremental vs control arm** | **Rs 37,667** |
 
-**68 of 163 "recoveries" — 42% — were customers who paid without the agent
+**68 of 164 "recoveries" — 42% — were customers who paid without the agent
 doing anything.** Every framing except the last counts them as a win, and the
 spread between the most flattering and the honest one is five-fold on rupees.
 
-"60.4% recovery rate" is a headline anyone would publish. It is also true, from
+"60.6% recovery rate" is a headline anyone would publish. It is also true, from
 this same run. That is the problem, and it is why everything below is
 incremental.
 
 ### The honest headline
 
-**+Rs 20,347 mean incremental revenue across 12 seeds** (n=300 each,
-sd 10,764, approximate 95% CI on the mean [14,257, 26,438], positive in 12 of
-12), for **+59 extra contacts and +1.4 extra cancellations**. Reproduce with
+**+Rs 16,653 mean incremental revenue across 12 seeds** (n=300 each,
+sd 13,041, approximate 95% CI on the mean [9,274, 24,032], positive in **11 of
+12**), for **+55 extra contacts and +1.7 extra cancellations**. Reproduce with
 `python -m eval.sweep --seeds 12`.
 
-The per-seed spread is wide — [3,166, 38,274] — so any single run is close to
+The per-seed spread is wide, and one seed is **negative** — [-5,569, 37,667] — so any single run is close to
 meaningless on its own. An earlier draft of this README reported 47,382 as the
 result; that was the *best* of the twelve, and quoting it was cherry-picking
 even though the seed was chosen before the numbers were seen. The mean and the
@@ -95,13 +95,13 @@ belief in `sim/response_model.py` perturbed at a time:
 
 | Scenario | Mean incremental | Seeds positive |
 | --- | ---: | ---: |
-| baseline | 20,347 | 12/12 |
-| outreach works better | 24,534 | 12/12 |
-| customers rarely churn | 21,511 | 11/12 |
-| customers churn twice as fast | 19,988 | 12/12 |
-| retry timing matters less | 19,272 | 12/12 |
-| outreach barely works | 7,083 | 8/12 |
-| **message frames do nothing** | **−7,691** | **4/12** |
+| baseline | 16,653 | 11/12 |
+| outreach works better | 22,138 | 12/12 |
+| customers rarely churn | 17,519 | 10/12 |
+| customers churn twice as fast | 17,614 | 11/12 |
+| retry timing matters less | 15,406 | 11/12 |
+| outreach barely works | 6,105 | 8/12 |
+| **message frames do nothing** | **−8,129** | **3/12** |
 
 **If the behavioural message frames carry no lift in a payments context, Chukta
 is net negative.** That assumption is load-bearing, and it is the least

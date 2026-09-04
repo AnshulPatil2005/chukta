@@ -157,6 +157,54 @@ this stops a *correctly reasoned* action pointed at the wrong universe.
 
 ## 31 Aug 2026 — day 3
 
+## 4 Sept 2026 — submission day
+
+### Most of the failure taxonomy was wrong
+
+A note has sat at the top of `chukta/taxonomy.py` since day one: the reason
+slugs were transcribed from memory and had never been confirmed. On the last
+day I finally checked them against Razorpay's published error documentation.
+
+**Most of them were wrong.**
+
+```
+payment_timeout          -> payment_timed_out
+collect_request_expired  -> payment_collect_request_expired
+invalid_card_number      -> card_number_invalid
+card_blocked             -> debit_instrument_blocked
+issuer_down              -> issuer_technical_error
+payment_limit_exceeded   -> transaction_limit_exceeded
+expired_card, card_disabled, network_error, bank_down  -> do not exist
+```
+
+Near-misses are the dangerous kind. `payment_timeout` looks right, never
+matches, and every affected payment quietly degrades to tier 2 while the audit
+row reads "medium confidence" rather than "we had the wrong string". A
+completely wrong slug is safer, because it is obviously absent.
+
+The `source` vocabulary was wrong too. Razorpay documents four values -
+customer, business, gateway, razorpay - and I had issuer/bank/network while
+**omitting razorpay entirely**. Any failure Razorpay attributed to itself
+missed tier 2 and landed in UNKNOWN.
+
+**Fixed.** 109 verified tier-1 rules against roughly 30 before, every one
+appearing verbatim in the docs, and 26 tier-2 keys covering all four documented
+sources. `payment_failed` is deliberately left OUT of tier 1: it is the most
+common reason Razorpay returns and means nothing beyond "it failed", so mapping
+it would attach high confidence to a string carrying no information. It falls
+to source-and-step, which do carry signal, and records medium confidence -
+which is the truth.
+
+The simulator's corpus was generating `bank_down` and `card_blocked` too. A
+simulator emitting events the real gateway never sends is testing the wrong
+thing however good the rest of the pipeline is. Now every slug it generates is
+documented, except one deliberate unknown that exercises the tier-2 fallback.
+
+**The headline got worse.** Mean incremental 20,347 -> 16,653, and 12/12
+positive seeds -> 11/12, with one seed now frankly negative. The case mix
+changed because the classification changed. That is what verification is for,
+and reporting the smaller number is the whole point of the project.
+
 ## 1 Sept 2026 — day 4
 
 ### Went through the competitors' strengths one by one
