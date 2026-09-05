@@ -12,3 +12,6 @@ runs/*.json
 data/*.csv
 
 .pytest_cache/
+
+# Video render intermediates (slides + per-slide narration wavs)
+video/
